@@ -21,6 +21,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    console.log("Session user ID:", session.user.id);
+    console.log("Session user email:", session.user.email);
+    console.log("Session user name:", session.user.name);
+
     const body = await request.json();
     console.log("Request body:", body);
     const { templateId } = body;
@@ -29,6 +33,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 });
     }
 
+    console.log("Looking for template with ID:", templateId);
+    console.log("User ID:", session.user.id);
+    
     // Verify template exists and belongs to user
     const template = await db.query.checklistTemplates.findFirst({
       where: and(
@@ -42,7 +49,10 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    console.log("Template found:", template);
+
     if (!template) {
+      console.log("Template not found");
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
 
