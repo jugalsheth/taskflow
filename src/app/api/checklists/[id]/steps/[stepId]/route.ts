@@ -11,13 +11,20 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; stepId: string }> }
 ) {
   try {
+    console.log("=== PUT /api/checklists/[id]/steps/[stepId] called ===");
+    
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
+      console.log("No session found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id: instanceId, stepId } = await params;
-    const { isCompleted } = await request.json();
+    console.log("Instance ID:", instanceId);
+    console.log("Step ID:", stepId);
+    const body = await request.json();
+    console.log("Request body:", body);
+    const { isCompleted } = body;
 
     // Verify the instance belongs to the user
     const instance = await db.query.checklistInstances.findFirst({

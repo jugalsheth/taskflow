@@ -270,8 +270,9 @@ function ChecklistPlayerClient({ id }: { id: string }) {
                   <p className={`text-sm font-medium ${
                     step.isCompleted ? "text-green-800 line-through" : "text-gray-900"
                   }`}>
-                    {index + 1}. {step.stepText}
+                    {index + 1}. {step.stepText || `Step ${index + 1}`}
                   </p>
+                  <p className="text-xs text-gray-500 mt-1">Step ID: {step.id}</p>
                   {step.isCompleted && step.completedAt && (
                     <p className="text-xs text-green-600 mt-1">
                       Completed {new Date(step.completedAt).toLocaleTimeString()}
