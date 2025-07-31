@@ -177,23 +177,21 @@ export default function Dashboard() {
               <h1 className="text-3xl font-bold text-gray-900">Welcome to TaskFlow</h1>
               <p className="text-gray-600 mt-2">Manage your checklist templates and track your progress</p>
             </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  console.log("Test button clicked!");
-                  alert("Test button works!");
-                }}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              >
-                Test Button
-              </button>
-              <button
-                onClick={() => signOut()}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                Sign Out
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                console.log("Test button clicked!");
+                alert("Test button works!");
+              }}
+              className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 mr-2"
+            >
+              Test Button
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              Sign Out
+            </button>
           </div>
           
           <div className="mt-6">
