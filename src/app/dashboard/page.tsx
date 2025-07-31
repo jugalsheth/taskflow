@@ -88,8 +88,13 @@ export default function Dashboard() {
   };
 
   const handleStartChecklist = async (templateId: string) => {
+    console.log("=== handleStartChecklist called ===");
+    console.log("Template ID:", templateId);
+    
     try {
       setStartingChecklist(templateId);
+      console.log("Making fetch request to /api/checklists...");
+      
       const response = await fetch("/api/checklists", {
         method: "POST",
         headers: {
@@ -99,11 +104,17 @@ export default function Dashboard() {
         body: JSON.stringify({ templateId }),
       });
 
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.log("Error response:", errorText);
         throw new Error("Failed to start checklist");
       }
 
       const newInstance = await response.json();
+      console.log("New instance created:", newInstance);
       
       // Reload active checklists
       await loadActiveChecklists();
@@ -111,9 +122,10 @@ export default function Dashboard() {
       // Navigate to the new checklist instance
       router.push(`/checklists/${newInstance.id}`);
     } catch (error) {
-      setError("Failed to start checklist");
       console.error("Start checklist error:", error);
+      setError("Failed to start checklist");
     } finally {
+      console.log("Clearing starting checklist state");
       setStartingChecklist(null);
     }
   };
