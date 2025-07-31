@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+// NextAuth type declarations
 
 declare module "next-auth" {
   interface Session {
@@ -6,7 +6,7 @@ declare module "next-auth" {
       id: string;
       email: string;
       name?: string;
-    };
+    } | undefined;
   }
 
   interface User {

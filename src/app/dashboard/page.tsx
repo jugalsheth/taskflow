@@ -52,16 +52,13 @@ export default function DashboardPage() {
               </h2>
               <div className="space-y-2">
                 <p className="text-gray-600 dark:text-gray-300">
-                  <span className="font-medium">Email:</span> {session.user.email}
+                  <span className="font-medium">Email:</span> {session.user?.email}
                 </p>
-                {session.user.name && (
+                {session.user?.name && (
                   <p className="text-gray-600 dark:text-gray-300">
                     <span className="font-medium">Name:</span> {session.user.name}
                   </p>
                 )}
-                <p className="text-gray-600 dark:text-gray-300">
-                  <span className="font-medium">User ID:</span> {session.user.id}
-                </p>
               </div>
             </div>
             
