@@ -26,6 +26,9 @@ export async function PUT(
     console.log("Request body:", body);
     const { isCompleted } = body;
 
+    console.log("Looking for instance with ID:", instanceId);
+    console.log("User ID:", session.user.id);
+    
     // Verify the instance belongs to the user
     const instance = await db.query.checklistInstances.findFirst({
       where: and(
@@ -34,10 +37,16 @@ export async function PUT(
       )
     });
 
+    console.log("Instance found:", instance);
+
     if (!instance) {
+      console.log("Instance not found");
       return NextResponse.json({ error: "Checklist instance not found" }, { status: 404 });
     }
 
+    console.log("Updating step with instance ID:", instanceId);
+    console.log("Updating step with step ID:", stepId);
+    
     // Update the step completion status
     const [updatedStep] = await db
       .update(checklistInstanceSteps)
@@ -51,7 +60,10 @@ export async function PUT(
       ))
       .returning();
 
+    console.log("Updated step result:", updatedStep);
+
     if (!updatedStep) {
+      console.log("Step not found in database");
       return NextResponse.json({ error: "Step not found" }, { status: 404 });
     }
 
