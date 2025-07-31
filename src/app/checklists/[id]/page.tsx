@@ -83,6 +83,12 @@ function ChecklistPlayerClient({ id }: { id: string }) {
   }, [status, router, loadChecklistInstance]);
 
   const handleStepToggle = async (stepId: string, currentStatus: boolean) => {
+    console.log("=== handleStepToggle called ===");
+    console.log("Step ID:", stepId);
+    console.log("Current status:", currentStatus);
+    console.log("Instance ID:", id);
+    console.log("API URL:", `/api/checklists/${id}/steps/${stepId}`);
+    
     try {
       setUpdatingStep(stepId);
       const response = await fetch(`/api/checklists/${id}/steps/${stepId}`, {
