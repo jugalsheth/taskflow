@@ -2,71 +2,180 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 
-export default function DashboardPage() {
+interface Template {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  stepCount: number;
+}
+
+export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    if (status === "loading") return;
+    
     if (status === "unauthenticated") {
       router.push("/auth/login");
+      return;
     }
+
+    loadTemplates();
   }, [status, router]);
+
+  const loadTemplates = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/templates");
+      
+      if (!response.ok) {
+        throw new Error("Failed to load templates");
+      }
+
+      const data = await response.json();
+      setTemplates(data);
+    } catch (error) {
+      setError("Failed to load templates");
+      console.error("Load templates error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm("Are you sure you want to delete this template?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/templates/${templateId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete template");
+      }
+
+      // Reload templates
+      loadTemplates();
+    } catch (error) {
+      setError("Failed to delete template");
+      console.error("Delete template error:", error);
+    }
+  };
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-lg">Loading...</div>
       </div>
     );
   }
 
-  if (!session) {
+  if (!session?.user) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Welcome to TaskFlow
-              </h1>
-              <button
-                onClick={() => signOut({ callbackUrl: "/auth/login" })}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
-              >
-                Sign Out
-              </button>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Welcome to TaskFlow</h1>
+              <p className="text-gray-600 mt-2">Manage your checklist templates and track your progress</p>
             </div>
-            
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                User Information
-              </h2>
-              <div className="space-y-2">
-                <p className="text-gray-600 dark:text-gray-300">
-                  <span className="font-medium">Email:</span> {session.user?.email}
-                </p>
-                {session.user?.name && (
-                  <p className="text-gray-600 dark:text-gray-300">
-                    <span className="font-medium">Name:</span> {session.user.name}
+            <button
+              onClick={() => signOut()}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              Sign Out
+            </button>
+          </div>
+          
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">User Information</h2>
+            <p className="text-gray-600">Email: {session.user.email}</p>
+            {session.user.name && (
+              <p className="text-gray-600">Name: {session.user.name}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Templates Section */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Checklist Templates</h2>
+            <Link
+              href="/templates/new"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Create New Template
+            </Link>
+          </div>
+
+          {error && (
+            <div className="text-red-600 text-sm mb-4">{error}</div>
+          )}
+
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="text-lg">Loading templates...</div>
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500 text-lg mb-4">No templates yet</div>
+              <p className="text-gray-400">Create your first checklist template to get started!</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {templates.map((template) => (
+                <div key={template.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{template.title}</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    {template.stepCount} steps • Created {new Date(template.createdAt).toLocaleDateString()}
                   </p>
-                )}
-              </div>
+                  
+                  <div className="flex space-x-2">
+                    <button
+                      className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      Start Checklist
+                    </button>
+                    <Link
+                      href={`/templates/${template.id}/edit`}
+                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => handleDeleteTemplate(template.id)}
+                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            <div className="mt-6">
-              <p className="text-gray-600 dark:text-gray-400">
-                This is your dashboard. More features coming soon!
-              </p>
-            </div>
+          )}
+        </div>
+
+        {/* Active Checklists Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Active Checklists</h2>
+          <div className="text-center py-8">
+            <div className="text-gray-500 text-lg mb-4">No active checklists</div>
+            <p className="text-gray-400">Start a checklist from one of your templates to see it here!</p>
           </div>
         </div>
       </div>
