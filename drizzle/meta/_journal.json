@@ -15,6 +15,13 @@
       "when": 1753922310787,
       "tag": "0001_quick_slayback",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1753923432569,
+      "tag": "0002_nebulous_jocasta",
+      "breakpoints": true
     }
   ]
 }

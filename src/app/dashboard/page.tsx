@@ -13,12 +13,29 @@ interface Template {
   stepCount: number;
 }
 
+interface ChecklistInstance {
+  id: string;
+  templateId: string;
+  status: string;
+  startedAt: string;
+  completedAt: string | null;
+  progress: number;
+  totalSteps: number;
+  completedSteps: number;
+  template: {
+    id: string;
+    title: string;
+  };
+}
+
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [activeChecklists, setActiveChecklists] = useState<ChecklistInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [startingChecklist, setStartingChecklist] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -29,6 +46,7 @@ export default function Dashboard() {
     }
 
     loadTemplates();
+    loadActiveChecklists();
   }, [status, router]);
 
   const loadTemplates = async () => {
@@ -47,6 +65,51 @@ export default function Dashboard() {
       console.error("Load templates error:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadActiveChecklists = async () => {
+    try {
+      const response = await fetch("/api/checklists");
+      
+      if (!response.ok) {
+        throw new Error("Failed to load active checklists");
+      }
+
+      const data = await response.json();
+      setActiveChecklists(data);
+    } catch (error) {
+      console.error("Load active checklists error:", error);
+    }
+  };
+
+  const handleStartChecklist = async (templateId: string) => {
+    try {
+      setStartingChecklist(templateId);
+      const response = await fetch("/api/checklists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ templateId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to start checklist");
+      }
+
+      const newInstance = await response.json();
+      
+      // Reload active checklists
+      await loadActiveChecklists();
+      
+      // Navigate to the new checklist instance
+      router.push(`/checklists/${newInstance.id}`);
+    } catch (error) {
+      setError("Failed to start checklist");
+      console.error("Start checklist error:", error);
+    } finally {
+      setStartingChecklist(null);
     }
   };
 
@@ -147,9 +210,15 @@ export default function Dashboard() {
                   
                   <div className="flex space-x-2">
                     <button
-                      className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      onClick={() => handleStartChecklist(template.id)}
+                      disabled={startingChecklist === template.id}
+                      className={`px-3 py-1 text-white text-sm rounded focus:outline-none focus:ring-2 ${
+                        startingChecklist === template.id
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-green-600 hover:bg-green-700 focus:ring-green-500"
+                      }`}
                     >
-                      Start Checklist
+                      {startingChecklist === template.id ? "Starting..." : "Start Checklist"}
                     </button>
                     <Link
                       href={`/templates/${template.id}/edit`}
@@ -173,10 +242,59 @@ export default function Dashboard() {
         {/* Active Checklists Section */}
         <div className="bg-white rounded-lg shadow-md p-6 mt-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Active Checklists</h2>
-          <div className="text-center py-8">
-            <div className="text-gray-500 text-lg mb-4">No active checklists</div>
-            <p className="text-gray-400">Start a checklist from one of your templates to see it here!</p>
-          </div>
+          
+          {activeChecklists.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500 text-lg mb-4">No active checklists</div>
+              <p className="text-gray-400">Start a checklist from one of your templates to see it here!</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {activeChecklists.map((checklist) => (
+                <div key={checklist.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">{checklist.template.title}</h3>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      checklist.status === "completed" 
+                        ? "bg-green-100 text-green-800" 
+                        : checklist.status === "paused"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-blue-100 text-blue-800"
+                    }`}>
+                      {checklist.status === "completed" ? "Completed" : 
+                       checklist.status === "paused" ? "Paused" : "In Progress"}
+                    </span>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                      <span>Progress</span>
+                      <span>{checklist.completedSteps}/{checklist.totalSteps} ({checklist.progress}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${checklist.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-gray-500 mb-4">
+                    Started {new Date(checklist.startedAt).toLocaleDateString()}
+                  </p>
+                  
+                  <div className="flex space-x-2">
+                    <Link
+                      href={`/checklists/${checklist.id}`}
+                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Continue
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
