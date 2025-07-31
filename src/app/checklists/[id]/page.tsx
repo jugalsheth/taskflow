@@ -262,7 +262,7 @@ function ChecklistPlayerClient({ id }: { id: string }) {
                 }`}
               >
                 <button
-                  onClick={() => handleStepToggle(step.id, step.isCompleted)}
+                  onClick={() => handleStepToggle(step.step?.id || step.id, step.isCompleted)}
                   disabled={updatingStep === step.id}
                   className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                     step.isCompleted
