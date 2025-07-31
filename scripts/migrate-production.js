@@ -11,7 +11,10 @@ async function migrateProduction() {
   }
 
   const client = new Client({
-    connectionString: databaseUrl
+    connectionString: databaseUrl,
+    ssl: {
+      rejectUnauthorized: false
+    }
   });
 
   try {

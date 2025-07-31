@@ -48,7 +48,9 @@ function ChecklistPlayerClient({ id }: { id: string }) {
   const loadChecklistInstance = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/checklists/${id}`);
+      const response = await fetch(`/api/checklists/${id}`, {
+        credentials: "include",
+      });
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -88,6 +90,7 @@ function ChecklistPlayerClient({ id }: { id: string }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ isCompleted: !currentStatus }),
       });
 
@@ -112,6 +115,7 @@ function ChecklistPlayerClient({ id }: { id: string }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ action: "complete" }),
       });
 

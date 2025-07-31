@@ -52,7 +52,9 @@ export default function Dashboard() {
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/templates");
+      const response = await fetch("/api/templates", {
+        credentials: "include",
+      });
       
       if (!response.ok) {
         throw new Error("Failed to load templates");
@@ -70,7 +72,9 @@ export default function Dashboard() {
 
   const loadActiveChecklists = async () => {
     try {
-      const response = await fetch("/api/checklists");
+      const response = await fetch("/api/checklists", {
+        credentials: "include",
+      });
       
       if (!response.ok) {
         throw new Error("Failed to load active checklists");
@@ -91,6 +95,7 @@ export default function Dashboard() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ templateId }),
       });
 
@@ -121,6 +126,7 @@ export default function Dashboard() {
     try {
       const response = await fetch(`/api/templates/${templateId}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       if (!response.ok) {
