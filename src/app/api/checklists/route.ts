@@ -8,15 +8,22 @@ import { eq, and, desc } from "drizzle-orm";
 // POST /api/checklists - Start new checklist instance
 export async function POST(request: NextRequest) {
   try {
+    console.log("=== POST /api/checklists called ===");
+    console.log("Request headers:", Object.fromEntries(request.headers.entries()));
+    
     const session = await getServerSession(authOptions);
     console.log("Session in POST /api/checklists:", session);
+    console.log("Session user:", session?.user);
+    console.log("Session user email:", session?.user?.email);
     
     if (!session?.user?.email) {
       console.log("No session or user email found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { templateId } = await request.json();
+    const body = await request.json();
+    console.log("Request body:", body);
+    const { templateId } = body;
     
     if (!templateId) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 });
