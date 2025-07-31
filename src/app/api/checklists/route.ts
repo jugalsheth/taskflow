@@ -9,7 +9,10 @@ import { eq, and, desc } from "drizzle-orm";
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    console.log("Session in POST /api/checklists:", session);
+    
     if (!session?.user?.email) {
+      console.log("No session or user email found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
