@@ -60,6 +60,7 @@ export const authOptions = {
     signIn: "/auth/login",
   },
   callbacks: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async jwt({ token, user }: any) {
       if (user) {
         token.id = user.id;
@@ -68,6 +69,7 @@ export const authOptions = {
       }
       return token;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async session({ session, token }: any) {
       if (token && session.user) {
         session.user.id = token.id as string;
