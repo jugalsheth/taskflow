@@ -17,22 +17,39 @@ export async function GET() {
       );
     }
 
+    // Get templates
     const templates = await db
       .select({
         id: checklistTemplates.id,
         title: checklistTemplates.title,
         createdAt: checklistTemplates.createdAt,
         updatedAt: checklistTemplates.updatedAt,
-        stepCount: checklistSteps.id,
       })
       .from(checklistTemplates)
-      .leftJoin(checklistSteps, eq(checklistTemplates.id, checklistSteps.templateId))
-      .where(eq(checklistTemplates.userId, session.user.id))
-      .groupBy(checklistTemplates.id, checklistTemplates.title, checklistTemplates.createdAt, checklistTemplates.updatedAt);
+      .where(eq(checklistTemplates.userId, session.user.id));
 
-    return NextResponse.json(templates);
+    // Get step counts for each template
+    const templatesWithStepCounts = await Promise.all(
+      templates.map(async (template) => {
+        const steps = await db
+          .select({ id: checklistSteps.id })
+          .from(checklistSteps)
+          .where(eq(checklistSteps.templateId, template.id));
+        
+        return {
+          ...template,
+          stepCount: steps.length,
+        };
+      })
+    );
+
+    return NextResponse.json(templatesWithStepCounts);
   } catch (error) {
     console.error("GET /api/templates error:", error);
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
