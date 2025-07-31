@@ -29,7 +29,7 @@ interface ChecklistInstance {
 }
 
 export default function Dashboard() {
-  console.log("=== Dashboard component rendering ===");
+  console.log("=== Dashboard component rendering (UPDATED) ===");
   
   const { data: session, status } = useSession();
   const router = useRouter();
