@@ -28,6 +28,16 @@ interface ChecklistInstance {
   };
 }
 
+interface Team {
+  id: string;
+  name: string;
+  description: string | null;
+  privacyLevel: string;
+  createdAt: string;
+  updatedAt: string;
+  role: string;
+}
+
 export default function Dashboard() {
   console.log("=== Dashboard component rendering (UPDATED) ===");
   
@@ -35,6 +45,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [activeChecklists, setActiveChecklists] = useState<ChecklistInstance[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [startingChecklist, setStartingChecklist] = useState<string | null>(null);
@@ -49,6 +60,7 @@ export default function Dashboard() {
 
     loadTemplates();
     loadActiveChecklists();
+    loadTeams();
   }, [status, router]);
 
   const loadTemplates = async () => {
@@ -86,6 +98,23 @@ export default function Dashboard() {
       setActiveChecklists(data);
     } catch (error) {
       console.error("Load active checklists error:", error);
+    }
+  };
+
+  const loadTeams = async () => {
+    try {
+      const response = await fetch("/api/teams", {
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to load teams");
+      }
+
+      const data = await response.json();
+      setTeams(data.teams || []);
+    } catch (error) {
+      console.error("Load teams error:", error);
     }
   };
 
@@ -252,6 +281,70 @@ export default function Dashboard() {
                     >
                       Delete
                     </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* My Teams Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">My Teams</h2>
+            <Link
+              href="/teams/new"
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Create New Team
+            </Link>
+          </div>
+          
+          {teams.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500 text-lg mb-4">No teams yet</div>
+              <p className="text-gray-400">Create your first team to start collaborating on checklists!</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {teams.map((team) => (
+                <div key={team.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">{team.name}</h3>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      team.role === "owner" 
+                        ? "bg-purple-100 text-purple-800" 
+                        : team.role === "admin"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}>
+                      {team.role === "owner" ? "Owner" : 
+                       team.role === "admin" ? "Admin" : 
+                       team.role === "member" ? "Member" : "Viewer"}
+                    </span>
+                  </div>
+                  
+                  {team.description && (
+                    <p className="text-sm text-gray-600 mb-3">{team.description}</p>
+                  )}
+                  
+                  <p className="text-sm text-gray-500 mb-4">
+                    {team.privacyLevel === "private" ? "Private" : "Public"} • Created {new Date(team.createdAt).toLocaleDateString()}
+                  </p>
+                  
+                  <div className="flex space-x-2">
+                    <button
+                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      View Team
+                    </button>
+                    {team.role === "owner" && (
+                      <button
+                        className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      >
+                        Manage
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

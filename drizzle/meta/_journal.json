@@ -22,6 +22,13 @@
       "when": 1753923432569,
       "tag": "0002_nebulous_jocasta",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1754167426195,
+      "tag": "0003_rapid_spectrum",
+      "breakpoints": true
     }
   ]
 }

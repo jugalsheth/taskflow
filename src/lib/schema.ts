@@ -50,10 +50,6 @@ export const checklistInstanceSteps = pgTable("checklist_instance_steps", {
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
-  templates: many(checklistTemplates),
-  instances: many(checklistInstances),
-}));
 
 export const templatesRelations = relations(checklistTemplates, ({ one, many }) => ({
   user: one(users, {
@@ -95,6 +91,54 @@ export const instanceStepsRelations = relations(checklistInstanceSteps, ({ one }
   }),
 }));
 
+// Teams table schema
+export const teams = pgTable("teams", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  ownerId: uuid("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  privacyLevel: varchar("privacy_level", { length: 50 }).notNull().default("private"), // 'private', 'public'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Team members table schema
+export const teamMembers = pgTable("team_members", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 50 }).notNull().default("member"), // 'owner', 'admin', 'member', 'viewer'
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+// Relations
+export const teamsRelations = relations(teams, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [teams.ownerId],
+    references: [users.id],
+  }),
+  members: many(teamMembers),
+}));
+
+export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamMembers.teamId],
+    references: [teams.id],
+  }),
+  user: one(users, {
+    fields: [teamMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+// Update users relations to include teams
+export const usersRelations = relations(users, ({ many }) => ({
+  templates: many(checklistTemplates),
+  instances: many(checklistInstances),
+  ownedTeams: many(teams),
+  teamMemberships: many(teamMembers),
+}));
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -109,4 +153,10 @@ export type ChecklistInstance = typeof checklistInstances.$inferSelect;
 export type NewChecklistInstance = typeof checklistInstances.$inferInsert;
 
 export type ChecklistInstanceStep = typeof checklistInstanceSteps.$inferSelect;
-export type NewChecklistInstanceStep = typeof checklistInstanceSteps.$inferInsert; 
+export type NewChecklistInstanceStep = typeof checklistInstanceSteps.$inferInsert;
+
+export type Team = typeof teams.$inferSelect;
+export type NewTeam = typeof teams.$inferInsert;
+
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type NewTeamMember = typeof teamMembers.$inferInsert; 
