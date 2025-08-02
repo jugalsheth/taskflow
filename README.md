@@ -182,3 +182,4 @@ This project is licensed under the MIT License.
 ## Support
 
 For support and questions, please open an issue on GitHub or contact the development team.
+# Trigger CI/CD with new environment variables
