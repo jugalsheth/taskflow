@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import TeamManagementModal from "@/components/teams/TeamManagementModal";
 
 interface TeamMember {
   id: string;
@@ -30,11 +31,12 @@ interface Team {
 
 export default function TeamDetailPage() {
   const params = useParams();
-  const router = useRouter();
+  // const router = useRouter();
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showManagementModal, setShowManagementModal] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -147,7 +149,10 @@ export default function TeamDetailPage() {
                   Back to Dashboard
                 </Link>
                 {(team.userRole === "owner" || team.userRole === "admin") && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <button 
+                    onClick={() => setShowManagementModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
                     Manage Team
                   </button>
                 )}
@@ -245,6 +250,17 @@ export default function TeamDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Team Management Modal */}
+      {team && (
+        <TeamManagementModal
+          team={team}
+          members={members}
+          isOpen={showManagementModal}
+          onClose={() => setShowManagementModal(false)}
+          onRefresh={loadTeamDetails}
+        />
+      )}
     </div>
   );
 } 

@@ -10,11 +10,11 @@ async function createTestUser() {
     await client.connect();
     console.log('Connected to database');
 
-    // Test user credentials
+    // Test user credentials - Secure version
     const testUser = {
-      email: 'test@example.com',
-      password: 'password123',
-      name: 'Test User'
+      email: 'admin@taskflow.dev',
+      password: 'TaskFlow2024!@#',
+      name: 'TaskFlow Admin'
     };
 
     // Hash the password

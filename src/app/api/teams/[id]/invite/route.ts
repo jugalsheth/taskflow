@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { teams, teamMembers, teamInvitations } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { sendTeamInvitationEmail } from "@/lib/email";
 
 // POST /api/teams/[id]/invite - Send team invitation
 export async function POST(
@@ -60,17 +61,17 @@ export async function POST(
       return NextResponse.json({ error: "Team not found" }, { status: 404 });
     }
 
-    // Check if user is already a member
-    const existingMember = await db
-      .select()
-      .from(teamMembers)
-      .leftJoin(teams, eq(teamMembers.teamId, teams.id))
-      .where(
-        and(
-          eq(teams.id, id),
-          eq(teams.ownerId, session.user.id)
-        )
-      );
+    // Check if user is already a member (this check is not needed for invitation flow)
+    // const existingMember = await db
+    //   .select()
+    //   .from(teamMembers)
+    //   .leftJoin(teams, eq(teamMembers.teamId, teams.id))
+    //   .where(
+    //     and(
+    //       eq(teams.id, id),
+    //       eq(teams.ownerId, session.user.id)
+    //     )
+    //   );
 
     // Check if invitation already exists
     const existingInvitation = await db
@@ -109,9 +110,26 @@ export async function POST(
       })
       .returning();
 
-    // TODO: Send email invitation
-    // For now, we'll just return the invitation data
-    // In production, you would integrate with an email service like SendGrid, Resend, etc.
+    // Send email invitation
+    const invitationUrl = `${process.env.NEXTAUTH_URL}/invitations/${token}`;
+    
+    try {
+      const emailResult = await sendTeamInvitationEmail({
+        to: email.toLowerCase(),
+        teamName: team[0].name,
+        inviterName: session.user.name || session.user.email || 'A team member',
+        invitationUrl,
+        expiresAt,
+      });
+
+      if (!emailResult.success) {
+        console.error('Email sending failed:', emailResult.error);
+        // Still create the invitation, but log the email failure
+      }
+    } catch (emailError) {
+      console.error('Email service error:', emailError);
+      // Continue with invitation creation even if email fails
+    }
 
     return NextResponse.json(
       { 

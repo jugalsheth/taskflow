@@ -21,6 +21,8 @@ function LoginFormContent() {
     setError("");
     setLoading(true);
 
+    console.log("Attempting login with:", formData.email);
+
     try {
       const result = await signIn("credentials", {
         email: formData.email,
@@ -28,14 +30,19 @@ function LoginFormContent() {
         redirect: false,
       });
 
+      console.log("Login result:", result);
+
       if (result?.error) {
+        console.error("Login error:", result.error);
         setError("Invalid email or password");
       } else {
+        console.log("Login successful, redirecting to dashboard");
         // Redirect to dashboard or home page
         router.push("/dashboard");
         router.refresh();
       }
-    } catch {
+    } catch (error) {
+      console.error("Login exception:", error);
       setError("Login failed. Please try again.");
     } finally {
       setLoading(false);

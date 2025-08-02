@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import TeamManagementModal from "@/components/teams/TeamManagementModal";
 
 interface Template {
   id: string;
@@ -36,12 +37,42 @@ interface Team {
   createdAt: string;
   updatedAt: string;
   role: string;
+  userRole: string;
+  memberCount: number;
+  invitationCount: number;
+}
+
+interface TeamMember {
+  id: string;
+  userId: string;
+  teamId: string;
+  role: string;
+  joinedAt: string;
+  userName: string | null;
+  userEmail: string;
+}
+
+interface ApiTeamMember {
+  id: string;
+  userId: string;
+  teamId: string;
+  role: string;
+  joinedAt: string;
+  user?: {
+    name: string | null;
+    email: string;
+  };
 }
 
 export default function Dashboard() {
   console.log("=== Dashboard component rendering (UPDATED) ===");
   
   const { data: session, status } = useSession();
+  
+  const formatDate = (dateString: string) => {
+    if (!mounted) return "Loading...";
+    return new Date(dateString).toLocaleDateString();
+  };
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [activeChecklists, setActiveChecklists] = useState<ChecklistInstance[]>([]);
@@ -49,6 +80,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [startingChecklist, setStartingChecklist] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [showManagementModal, setShowManagementModal] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -116,6 +155,48 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Load teams error:", error);
     }
+  };
+
+  const loadTeamDetails = async (teamId: string) => {
+    try {
+      const response = await fetch(`/api/teams/${teamId}`, {
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to load team details");
+      }
+
+      const data = await response.json();
+      
+      // Transform team data to match TeamManagementModal interface
+      const transformedTeam = {
+        ...data.team,
+        memberCount: data.members?.length || 0,
+        invitationCount: data.pendingInvitations || 0,
+      };
+      
+      // Transform members data to match TeamManagementModal interface
+      const transformedMembers = data.members?.map((member: ApiTeamMember) => ({
+        id: member.id,
+        userId: member.userId,
+        teamId: member.teamId,
+        role: member.role,
+        joinedAt: member.joinedAt,
+        userName: member.user?.name || null,
+        userEmail: member.user?.email || '',
+      })) || [];
+      
+      setSelectedTeam(transformedTeam);
+      setTeamMembers(transformedMembers);
+    } catch (error) {
+      console.error("Load team details error:", error);
+    }
+  };
+
+  const handleManageTeam = async (team: Team) => {
+    await loadTeamDetails(team.id);
+    setShowManagementModal(true);
   };
 
   const handleStartChecklist = async (templateId: string) => {
@@ -254,7 +335,7 @@ export default function Dashboard() {
                 <div key={template.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{template.title}</h3>
                   <p className="text-sm text-gray-500 mb-4">
-                    {template.stepCount} steps • Created {new Date(template.createdAt).toLocaleDateString()}
+                    {template.stepCount} steps • Created {formatDate(template.createdAt)}
                   </p>
                   
                   <div className="flex space-x-2">
@@ -329,7 +410,7 @@ export default function Dashboard() {
                   )}
                   
                   <p className="text-sm text-gray-500 mb-4">
-                    {team.privacyLevel === "private" ? "Private" : "Public"} • Created {new Date(team.createdAt).toLocaleDateString()}
+                    {team.privacyLevel === "private" ? "Private" : "Public"} • Created {formatDate(team.createdAt)}
                   </p>
                   
                   <div className="flex space-x-2">
@@ -339,9 +420,10 @@ export default function Dashboard() {
                     >
                       View Team
                     </Link>
-                    {team.role === "owner" && (
+                    {(team.role === "owner" || team.role === "admin") && (
                       <button
-                        className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                        onClick={() => handleManageTeam(team)}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         Manage
                       </button>
@@ -394,7 +476,7 @@ export default function Dashboard() {
                   </div>
                   
                   <p className="text-sm text-gray-500 mb-4">
-                    Started {new Date(checklist.startedAt).toLocaleDateString()}
+                    Started {formatDate(checklist.startedAt)}
                   </p>
                   
                   <div className="flex space-x-2">
@@ -411,6 +493,22 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Team Management Modal */}
+      {selectedTeam && (
+        <TeamManagementModal
+          team={selectedTeam}
+          members={teamMembers}
+          isOpen={showManagementModal}
+          onClose={() => setShowManagementModal(false)}
+          onRefresh={() => {
+            loadTeams();
+            if (selectedTeam) {
+              loadTeamDetails(selectedTeam.id);
+            }
+          }}
+        />
+      )}
     </div>
   );
 } 
