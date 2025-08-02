@@ -111,6 +111,19 @@ export const teamMembers = pgTable("team_members", {
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
+// Team invitations table schema
+export const teamInvitations = pgTable("team_invitations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  invitedEmail: varchar("invited_email", { length: 255 }).notNull(),
+  invitedBy: uuid("invited_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  status: varchar("status", { length: 50 }).notNull().default("pending"), // 'pending', 'accepted', 'declined', 'expired'
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const teamsRelations = relations(teams, ({ one, many }) => ({
   owner: one(users, {
@@ -118,6 +131,7 @@ export const teamsRelations = relations(teams, ({ one, many }) => ({
     references: [users.id],
   }),
   members: many(teamMembers),
+  invitations: many(teamInvitations),
 }));
 
 export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
@@ -127,6 +141,17 @@ export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
   }),
   user: one(users, {
     fields: [teamMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const teamInvitationsRelations = relations(teamInvitations, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamInvitations.teamId],
+    references: [teams.id],
+  }),
+  invitedByUser: one(users, {
+    fields: [teamInvitations.invitedBy],
     references: [users.id],
   }),
 }));
@@ -159,4 +184,7 @@ export type Team = typeof teams.$inferSelect;
 export type NewTeam = typeof teams.$inferInsert;
 
 export type TeamMember = typeof teamMembers.$inferSelect;
-export type NewTeamMember = typeof teamMembers.$inferInsert; 
+export type NewTeamMember = typeof teamMembers.$inferInsert;
+
+export type TeamInvitation = typeof teamInvitations.$inferSelect;
+export type NewTeamInvitation = typeof teamInvitations.$inferInsert; 

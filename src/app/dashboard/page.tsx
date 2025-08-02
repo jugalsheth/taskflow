@@ -333,11 +333,12 @@ export default function Dashboard() {
                   </p>
                   
                   <div className="flex space-x-2">
-                    <button
+                    <Link
+                      href={`/teams/${team.id}`}
                       className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       View Team
-                    </button>
+                    </Link>
                     {team.role === "owner" && (
                       <button
                         className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
