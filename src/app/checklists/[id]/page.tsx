@@ -34,23 +34,33 @@ interface ChecklistInstance {
   instanceSteps: ChecklistStep[];
 }
 
-export default async function ChecklistPlayer({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  
-  return <ChecklistPlayerClient id={id} />;
+export default function ChecklistPlayer({ params }: { params: Promise<{ id: string }> }) {
+  return <ChecklistPlayerClient params={params} />;
 }
 
-function ChecklistPlayerClient({ id }: { id: string }) {
+function ChecklistPlayerClient({ params }: { params: Promise<{ id: string }> }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [instance, setInstance] = useState<ChecklistInstance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingStep, setUpdatingStep] = useState<string | null>(null);
+  const [id, setId] = useState<string | null>(null);
 
 
+
+  // Extract id from params
+  useEffect(() => {
+    const extractId = async () => {
+      const { id: checklistId } = await params;
+      setId(checklistId);
+    };
+    extractId();
+  }, [params]);
 
   const loadChecklistInstance = useCallback(async () => {
+    if (!id) return;
+    
     try {
       setLoading(true);
       const response = await fetch(`/api/checklists/${id}`, {
@@ -77,7 +87,7 @@ function ChecklistPlayerClient({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => {
-    if (status === "loading") return;
+    if (status === "loading" || !id) return;
     
     if (status === "unauthenticated") {
       router.push("/auth/login");
@@ -85,9 +95,11 @@ function ChecklistPlayerClient({ id }: { id: string }) {
     }
 
     loadChecklistInstance();
-  }, [status, router, loadChecklistInstance]);
+  }, [status, router, loadChecklistInstance, id]);
 
   const handleStepToggle = async (stepId: string, currentStatus: boolean) => {
+    if (!id) return;
+    
     console.log("=== handleStepToggle called ===");
     console.log("Step ID:", stepId);
     console.log("Current status:", currentStatus);
@@ -120,6 +132,8 @@ function ChecklistPlayerClient({ id }: { id: string }) {
   };
 
   const handleCompleteChecklist = async () => {
+    if (!id) return;
+    
     try {
       const response = await fetch(`/api/checklists/${id}`, {
         method: "PUT",

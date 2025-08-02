@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import TeamManagementModal from "@/components/teams/TeamManagementModal";
+import TeamTemplatesSection from "@/components/teams/TeamTemplatesSection";
+import TemplateSharingModal from "@/components/templates/TemplateSharingModal";
+import TemplateFavorites from "@/components/templates/TemplateFavorites";
 
 interface Template {
   id: string;
@@ -84,6 +87,8 @@ export default function Dashboard() {
   const [showManagementModal, setShowManagementModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [showSharingModal, setShowSharingModal] = useState(false);
+  const [selectedTeamForTemplates, setSelectedTeamForTemplates] = useState<Team | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -265,6 +270,45 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleFavorite = async (templateId: string) => {
+    try {
+      // Try to add to favorites first (POST)
+      let response = await fetch(`/api/templates/${templateId}/favorite`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      // If POST fails with "already in favorites", try DELETE
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (errorData.error === "Template is already in your favorites") {
+          // Template is already favorited, so remove it
+          response = await fetch(`/api/templates/${templateId}/favorite`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+        }
+      }
+
+      if (!response.ok) {
+        let errorMessage = "Failed to toggle favorite";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If we can't parse the error response, use the default message
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Refresh templates to update favorite status
+      loadTemplates();
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      setError("Failed to toggle favorite");
+    }
+  };
+
   if (status === "loading") {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -350,6 +394,13 @@ export default function Dashboard() {
                     >
                       {startingChecklist === template.id ? "Starting..." : "Start Checklist"}
                     </button>
+                    <button
+                      onClick={() => handleToggleFavorite(template.id)}
+                      className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      title="Add to favorites"
+                    >
+                      ⭐
+                    </button>
                     <Link
                       href={`/templates/${template.id}/edit`}
                       className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -420,6 +471,15 @@ export default function Dashboard() {
                     >
                       View Team
                     </Link>
+                    <button
+                      onClick={() => {
+                        setSelectedTeamForTemplates(team);
+                        setShowSharingModal(true);
+                      }}
+                      className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      Share Template
+                    </button>
                     {(team.role === "owner" || team.role === "admin") && (
                       <button
                         onClick={() => handleManageTeam(team)}
@@ -433,6 +493,29 @@ export default function Dashboard() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Team Templates Section */}
+        {teams.length > 0 && (
+          <div className="mt-8">
+            <TeamTemplatesSection
+              teamId={teams[0].id}
+              userRole={teams[0].role}
+              onRefresh={() => {
+                loadTeams();
+                loadTemplates();
+              }}
+            />
+          </div>
+        )}
+
+        {/* My Favorite Templates Section */}
+        <div className="mt-8">
+          <TemplateFavorites
+            onFavoriteRemoved={() => {
+              loadTemplates();
+            }}
+          />
         </div>
 
         {/* Active Checklists Section */}
@@ -509,6 +592,19 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Template Sharing Modal */}
+      <TemplateSharingModal
+        isOpen={showSharingModal}
+        onClose={() => {
+          setShowSharingModal(false);
+          setSelectedTeamForTemplates(null);
+        }}
+        onSuccess={() => {
+          loadTeams();
+          loadTemplates();
+        }}
+      />
     </div>
   );
 } 

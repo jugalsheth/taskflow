@@ -2,58 +2,96 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { checklistTemplates, checklistSteps } from "@/lib/schema";
+import { checklistTemplates, checklistSteps, users, teamTemplates, teamMembers } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
 
-// GET /api/templates/[id] - Get a specific template with its steps
+// GET /api/templates/[id] - Get a single template with steps
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: templateId } = await params;
-  
   try {
     const session = await getServerSession(authOptions);
-
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get template with ownership check
-    const template = await db
-      .select()
+    const { id: templateId } = await params;
+
+    // Get template with owner information
+    const templateData = await db
+      .select({
+        id: checklistTemplates.id,
+        title: checklistTemplates.title,
+        createdAt: checklistTemplates.createdAt,
+        updatedAt: checklistTemplates.updatedAt,
+        userId: checklistTemplates.userId,
+        ownerName: users.name,
+        ownerEmail: users.email,
+      })
       .from(checklistTemplates)
-      .where(
-        and(
-          eq(checklistTemplates.id, templateId),
-          eq(checklistTemplates.userId, session.user.id)
-        )
-      )
+      .innerJoin(users, eq(checklistTemplates.userId, users.id))
+      .where(eq(checklistTemplates.id, templateId))
       .limit(1);
 
-    if (template.length === 0) {
-      return NextResponse.json(
-        { error: "Template not found" },
-        { status: 404 }
-      );
+    if (templateData.length === 0) {
+      return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
 
-    // Get steps for this template
-    const steps = await db
-      .select()
+    const template = templateData[0];
+
+    // Check if user has access to this template
+    const hasAccess = template.userId === session.user.id;
+
+    // If user doesn't own the template, check if they have access through team membership
+    if (!hasAccess) {
+      const teamAccess = await db
+        .select()
+        .from(teamTemplates)
+        .innerJoin(teamMembers, eq(teamTemplates.teamId, teamMembers.teamId))
+        .where(
+          and(
+            eq(teamTemplates.templateId, templateId),
+            eq(teamMembers.userId, session.user.id),
+            eq(teamTemplates.status, "active")
+          )
+        )
+        .limit(1);
+
+      if (teamAccess.length === 0) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+    }
+
+    // Get template steps
+    const stepsData = await db
+      .select({
+        id: checklistSteps.id,
+        stepText: checklistSteps.stepText,
+        orderIndex: checklistSteps.orderIndex,
+      })
       .from(checklistSteps)
       .where(eq(checklistSteps.templateId, templateId))
       .orderBy(checklistSteps.orderIndex);
 
-    return NextResponse.json({
-      template: template[0],
-      steps: steps,
-    });
+    // Format the response
+    const templateWithSteps = {
+      id: template.id,
+      title: template.title,
+      createdAt: template.createdAt,
+      updatedAt: template.updatedAt,
+      userId: template.userId,
+      stepCount: stepsData.length,
+      steps: stepsData,
+      owner: {
+        name: template.ownerName,
+        email: template.ownerEmail,
+      },
+    };
+
+    return NextResponse.json({ template: templateWithSteps });
   } catch (error) {
-    console.error("GET /api/templates/[id] error:", error);
+    console.error("Error fetching template:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

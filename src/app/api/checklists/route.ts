@@ -63,6 +63,8 @@ export async function POST(request: NextRequest) {
       status: "in_progress"
     }).returning();
 
+    console.log("Created new instance:", newInstance);
+
     // Create instance steps for all template steps
     const instanceStepsData = template.steps.map(step => ({
       instanceId: newInstance.id,
@@ -70,10 +72,13 @@ export async function POST(request: NextRequest) {
       isCompleted: false
     }));
 
+    console.log("Instance steps data:", instanceStepsData);
+
     if (instanceStepsData.length > 0) {
       await db.insert(checklistInstanceSteps).values(instanceStepsData);
     }
 
+    console.log("Returning new instance:", newInstance);
     return NextResponse.json(newInstance);
   } catch (error) {
     console.error("Error creating checklist instance:", error);

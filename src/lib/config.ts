@@ -4,6 +4,7 @@
 export const config = {
   database: {
     url: process.env.POSTGRES_URL || "postgresql://username:password@localhost:5432/taskflow",
+    urlNonPooling: process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || "postgresql://username:password@localhost:5432/taskflow",
   },
   auth: {
     secret: process.env.AUTH_SECRET || "your-secret-key-here",

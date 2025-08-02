@@ -49,48 +49,6 @@ export const checklistInstanceSteps = pgTable("checklist_instance_steps", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Relations
-
-export const templatesRelations = relations(checklistTemplates, ({ one, many }) => ({
-  user: one(users, {
-    fields: [checklistTemplates.userId],
-    references: [users.id],
-  }),
-  steps: many(checklistSteps),
-  instances: many(checklistInstances),
-}));
-
-export const stepsRelations = relations(checklistSteps, ({ one, many }) => ({
-  template: one(checklistTemplates, {
-    fields: [checklistSteps.templateId],
-    references: [checklistTemplates.id],
-  }),
-  instanceSteps: many(checklistInstanceSteps),
-}));
-
-export const instancesRelations = relations(checklistInstances, ({ one, many }) => ({
-  template: one(checklistTemplates, {
-    fields: [checklistInstances.templateId],
-    references: [checklistTemplates.id],
-  }),
-  user: one(users, {
-    fields: [checklistInstances.userId],
-    references: [users.id],
-  }),
-  instanceSteps: many(checklistInstanceSteps),
-}));
-
-export const instanceStepsRelations = relations(checklistInstanceSteps, ({ one }) => ({
-  instance: one(checklistInstances, {
-    fields: [checklistInstanceSteps.instanceId],
-    references: [checklistInstances.id],
-  }),
-  step: one(checklistSteps, {
-    fields: [checklistInstanceSteps.stepId],
-    references: [checklistSteps.id],
-  }),
-}));
-
 // Teams table schema
 export const teams = pgTable("teams", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -124,7 +82,83 @@ export const teamInvitations = pgTable("team_invitations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Team templates table schema
+export const teamTemplates = pgTable("team_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  templateId: uuid("template_id").notNull().references(() => checklistTemplates.id, { onDelete: "cascade" }),
+  sharedBy: uuid("shared_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sharedAt: timestamp("shared_at").notNull(),
+  isOfficial: boolean("is_official").notNull().default(false),
+  status: varchar("status", { length: 50 }).notNull().default("active"), // 'active', 'removed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Template feedback table schema
+export const templateFeedback = pgTable("template_feedback", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  templateId: uuid("template_id").notNull().references(() => checklistTemplates.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  comment: text("comment").notNull(),
+  rating: integer("rating"), // 1-5 rating
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Template favorites table schema
+export const templateFavorites = pgTable("template_favorites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  templateId: uuid("template_id").notNull().references(() => checklistTemplates.id, { onDelete: "cascade" }),
+  teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }), // nullable for personal favorites
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
+export const templatesRelations = relations(checklistTemplates, ({ one, many }) => ({
+  user: one(users, {
+    fields: [checklistTemplates.userId],
+    references: [users.id],
+  }),
+  steps: many(checklistSteps),
+  instances: many(checklistInstances),
+  teamTemplates: many(teamTemplates),
+  feedback: many(templateFeedback),
+  favorites: many(templateFavorites),
+}));
+
+export const stepsRelations = relations(checklistSteps, ({ one, many }) => ({
+  template: one(checklistTemplates, {
+    fields: [checklistSteps.templateId],
+    references: [checklistTemplates.id],
+  }),
+  instanceSteps: many(checklistInstanceSteps),
+}));
+
+export const instancesRelations = relations(checklistInstances, ({ one, many }) => ({
+  template: one(checklistTemplates, {
+    fields: [checklistInstances.templateId],
+    references: [checklistTemplates.id],
+  }),
+  user: one(users, {
+    fields: [checklistInstances.userId],
+    references: [users.id],
+  }),
+  instanceSteps: many(checklistInstanceSteps),
+}));
+
+export const instanceStepsRelations = relations(checklistInstanceSteps, ({ one }) => ({
+  instance: one(checklistInstances, {
+    fields: [checklistInstanceSteps.instanceId],
+    references: [checklistInstances.id],
+  }),
+  step: one(checklistSteps, {
+    fields: [checklistInstanceSteps.stepId],
+    references: [checklistSteps.id],
+  }),
+}));
+
 export const teamsRelations = relations(teams, ({ one, many }) => ({
   owner: one(users, {
     fields: [teams.ownerId],
@@ -132,6 +166,8 @@ export const teamsRelations = relations(teams, ({ one, many }) => ({
   }),
   members: many(teamMembers),
   invitations: many(teamInvitations),
+  teamTemplates: many(teamTemplates),
+  feedback: many(templateFeedback),
 }));
 
 export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
@@ -156,12 +192,60 @@ export const teamInvitationsRelations = relations(teamInvitations, ({ one }) => 
   }),
 }));
 
+export const teamTemplatesRelations = relations(teamTemplates, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamTemplates.teamId],
+    references: [teams.id],
+  }),
+  template: one(checklistTemplates, {
+    fields: [teamTemplates.templateId],
+    references: [checklistTemplates.id],
+  }),
+  sharedByUser: one(users, {
+    fields: [teamTemplates.sharedBy],
+    references: [users.id],
+  }),
+}));
+
+export const templateFeedbackRelations = relations(templateFeedback, ({ one }) => ({
+  template: one(checklistTemplates, {
+    fields: [templateFeedback.templateId],
+    references: [checklistTemplates.id],
+  }),
+  user: one(users, {
+    fields: [templateFeedback.userId],
+    references: [users.id],
+  }),
+  team: one(teams, {
+    fields: [templateFeedback.teamId],
+    references: [teams.id],
+  }),
+}));
+
+export const templateFavoritesRelations = relations(templateFavorites, ({ one }) => ({
+  user: one(users, {
+    fields: [templateFavorites.userId],
+    references: [users.id],
+  }),
+  template: one(checklistTemplates, {
+    fields: [templateFavorites.templateId],
+    references: [checklistTemplates.id],
+  }),
+  team: one(teams, {
+    fields: [templateFavorites.teamId],
+    references: [teams.id],
+  }),
+}));
+
 // Update users relations to include teams
 export const usersRelations = relations(users, ({ many }) => ({
   templates: many(checklistTemplates),
   instances: many(checklistInstances),
   ownedTeams: many(teams),
   teamMemberships: many(teamMembers),
+  sharedTeamTemplates: many(teamTemplates, { relationName: "sharedByUser" }),
+  templateFeedback: many(templateFeedback),
+  templateFavorites: many(templateFavorites),
 }));
 
 // TypeScript types
@@ -187,4 +271,13 @@ export type TeamMember = typeof teamMembers.$inferSelect;
 export type NewTeamMember = typeof teamMembers.$inferInsert;
 
 export type TeamInvitation = typeof teamInvitations.$inferSelect;
-export type NewTeamInvitation = typeof teamInvitations.$inferInsert; 
+export type NewTeamInvitation = typeof teamInvitations.$inferInsert;
+
+export type TeamTemplate = typeof teamTemplates.$inferSelect;
+export type NewTeamTemplate = typeof teamTemplates.$inferInsert;
+
+export type TemplateFeedback = typeof templateFeedback.$inferSelect;
+export type NewTemplateFeedback = typeof templateFeedback.$inferInsert;
+
+export type TemplateFavorite = typeof templateFavorites.$inferSelect;
+export type NewTemplateFavorite = typeof templateFavorites.$inferInsert; 
