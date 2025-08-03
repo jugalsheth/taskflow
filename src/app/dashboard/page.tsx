@@ -43,6 +43,7 @@ export default function Dashboard() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [favorites, setFavorites] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [stats, setStats] = useState({
@@ -66,33 +67,67 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       
       // Load templates
       const templatesResponse = await fetch("/api/templates");
       if (templatesResponse.ok) {
         const templatesData = await templatesResponse.json();
         console.log("Templates API response:", templatesData);
-        setTemplates(templatesData);
-        setStats(prev => ({ ...prev, totalTemplates: templatesData.length }));
+        
+        // Validate the response structure
+        if (Array.isArray(templatesData)) {
+          setTemplates(templatesData);
+          setStats(prev => ({ ...prev, totalTemplates: templatesData.length }));
+        } else {
+          console.error("Invalid templates response structure:", templatesData);
+          setError("Failed to load templates: Invalid response format");
+        }
+      } else {
+        console.error("Templates API error:", templatesResponse.status);
+        setError("Failed to load templates");
       }
 
       // Load teams
-      const teamsResponse = await fetch("/api/teams");
-      if (teamsResponse.ok) {
-        const teamsData = await teamsResponse.json();
-        setTeams(teamsData);
-        setStats(prev => ({ ...prev, activeTeams: teamsData.length }));
+      try {
+        const teamsResponse = await fetch("/api/teams");
+        if (teamsResponse.ok) {
+          const teamsData = await teamsResponse.json();
+          console.log("Teams API response:", teamsData);
+          
+          // Handle different response structures
+          const teamsArray = Array.isArray(teamsData) ? teamsData : teamsData.teams || [];
+          setTeams(teamsArray);
+          setStats(prev => ({ ...prev, activeTeams: teamsArray.length }));
+        } else {
+          console.error("Teams API error:", teamsResponse.status);
+        }
+      } catch (teamsError) {
+        console.error("Teams API exception:", teamsError);
+        // Don't set error for teams as it's not critical
       }
 
       // Load favorites
-      const favoritesResponse = await fetch("/api/templates/favorites");
-      if (favoritesResponse.ok) {
-        const favoritesData = await favoritesResponse.json();
-        setFavorites(favoritesData);
+      try {
+        const favoritesResponse = await fetch("/api/templates/favorites");
+        if (favoritesResponse.ok) {
+          const favoritesData = await favoritesResponse.json();
+          console.log("Favorites API response:", favoritesData);
+          
+          if (Array.isArray(favoritesData)) {
+            setFavorites(favoritesData);
+          }
+        } else {
+          console.error("Favorites API error:", favoritesResponse.status);
+        }
+      } catch (favoritesError) {
+        console.error("Favorites API exception:", favoritesError);
+        // Don't set error for favorites as it's not critical
       }
 
     } catch (error) {
       console.error("Error loading dashboard data:", error);
+      setError("Failed to load dashboard data. Please refresh the page.");
     } finally {
       setIsLoading(false);
     }
@@ -117,6 +152,8 @@ export default function Dashboard() {
             setFavorites([...favorites, { ...template, isFavorite: true }]);
           }
         }
+      } else {
+        console.error("Toggle favorite error:", response.status);
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
@@ -126,6 +163,32 @@ export default function Dashboard() {
   const filteredTemplates = templates.filter(template =>
     (template.title?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center max-w-md mx-auto p-6">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-red-600 text-2xl">⚠️</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={() => {
+                setError(null);
+                loadDashboardData();
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (status === "loading" || isLoading) {
     return (
@@ -187,7 +250,7 @@ export default function Dashboard() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  Welcome back, {session?.user?.name?.split(" ")[0]}! 👋
+                  Welcome back, {session?.user?.name?.split(" ")[0] || "User"}! 👋
                 </h1>
                 <p className="text-blue-100 text-lg">
                   Ready to streamline your workflows today?
@@ -366,23 +429,23 @@ export default function Dashboard() {
                   }`}
                 >
                   <div className={viewMode === "list" ? "flex-1" : ""}>
-                                         <div className="flex items-start justify-between mb-3">
-                       <h3 className="font-semibold text-gray-900 line-clamp-1">{template.title}</h3>
-                       <button
-                         onClick={() => handleToggleFavorite(template.id)}
-                         className={`p-1 rounded-full transition-colors ${
-                           favorites.some(fav => fav.id === template.id)
-                             ? "text-yellow-500 hover:text-yellow-600"
-                             : "text-gray-400 hover:text-yellow-500"
-                         }`}
-                       >
-                         <Star className={`w-4 h-4 ${favorites.some(fav => fav.id === template.id) ? "fill-current" : ""}`} />
-                       </button>
-                     </div>
-                     <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                       <span>{template.stepCount} steps</span>
-                       <span>{new Date(template.createdAt).toLocaleDateString()}</span>
-                     </div>
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="font-semibold text-gray-900 line-clamp-1">{template.title}</h3>
+                      <button
+                        onClick={() => handleToggleFavorite(template.id)}
+                        className={`p-1 rounded-full transition-colors ${
+                          favorites.some(fav => fav.id === template.id)
+                            ? "text-yellow-500 hover:text-yellow-600"
+                            : "text-gray-400 hover:text-yellow-500"
+                        }`}
+                      >
+                        <Star className={`w-4 h-4 ${favorites.some(fav => fav.id === template.id) ? "fill-current" : ""}`} />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                      <span>{template.stepCount} steps</span>
+                      <span>{new Date(template.createdAt).toLocaleDateString()}</span>
+                    </div>
                     <div className="flex items-center space-x-2">
                       <Link
                         href={`/templates/${template.id}/view`}
