@@ -23,11 +23,11 @@ import {
 
 interface Template {
   id: string;
-  name: string;
-  description: string;
+  title: string;
   createdAt: string;
-  isFavorite: boolean;
-  steps: { id: string; title: string; description?: string }[];
+  updatedAt: string;
+  stepCount: number;
+  isFavorite?: boolean;
 }
 
 interface Team {
@@ -71,6 +71,7 @@ export default function Dashboard() {
       const templatesResponse = await fetch("/api/templates");
       if (templatesResponse.ok) {
         const templatesData = await templatesResponse.json();
+        console.log("Templates API response:", templatesData);
         setTemplates(templatesData);
         setStats(prev => ({ ...prev, totalTemplates: templatesData.length }));
       }
@@ -123,8 +124,7 @@ export default function Dashboard() {
   };
 
   const filteredTemplates = templates.filter(template =>
-    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.description.toLowerCase().includes(searchTerm.toLowerCase())
+    (template.title?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   if (status === "loading" || isLoading) {
@@ -366,24 +366,23 @@ export default function Dashboard() {
                   }`}
                 >
                   <div className={viewMode === "list" ? "flex-1" : ""}>
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-semibold text-gray-900 line-clamp-1">{template.name}</h3>
-                      <button
-                        onClick={() => handleToggleFavorite(template.id)}
-                        className={`p-1 rounded-full transition-colors ${
-                          favorites.some(fav => fav.id === template.id)
-                            ? "text-yellow-500 hover:text-yellow-600"
-                            : "text-gray-400 hover:text-yellow-500"
-                        }`}
-                      >
-                        <Star className={`w-4 h-4 ${favorites.some(fav => fav.id === template.id) ? "fill-current" : ""}`} />
-                      </button>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{template.description}</p>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                      <span>{template.steps?.length || 0} steps</span>
-                      <span>{new Date(template.createdAt).toLocaleDateString()}</span>
-                    </div>
+                                         <div className="flex items-start justify-between mb-3">
+                       <h3 className="font-semibold text-gray-900 line-clamp-1">{template.title}</h3>
+                       <button
+                         onClick={() => handleToggleFavorite(template.id)}
+                         className={`p-1 rounded-full transition-colors ${
+                           favorites.some(fav => fav.id === template.id)
+                             ? "text-yellow-500 hover:text-yellow-600"
+                             : "text-gray-400 hover:text-yellow-500"
+                         }`}
+                       >
+                         <Star className={`w-4 h-4 ${favorites.some(fav => fav.id === template.id) ? "fill-current" : ""}`} />
+                       </button>
+                     </div>
+                     <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                       <span>{template.stepCount} steps</span>
+                       <span>{new Date(template.createdAt).toLocaleDateString()}</span>
+                     </div>
                     <div className="flex items-center space-x-2">
                       <Link
                         href={`/templates/${template.id}/view`}
