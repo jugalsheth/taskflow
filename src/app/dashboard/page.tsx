@@ -1,98 +1,56 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import TeamManagementModal from "@/components/teams/TeamManagementModal";
-import TeamTemplatesSection from "@/components/teams/TeamTemplatesSection";
-import TemplateSharingModal from "@/components/templates/TemplateSharingModal";
-import TemplateFavorites from "@/components/templates/TemplateFavorites";
+import { 
+  Plus, 
+  Users, 
+  CheckCircle, 
+  Star, 
+  Share2, 
+  Settings, 
+  LogOut,
+  TrendingUp,
+  Target,
+  Zap,
+  ArrowRight,
+  Search,
+  Grid,
+  List
+} from "lucide-react";
 
 interface Template {
   id: string;
-  title: string;
+  name: string;
+  description: string;
   createdAt: string;
-  updatedAt: string;
-  stepCount: number;
-}
-
-interface ChecklistInstance {
-  id: string;
-  templateId: string;
-  status: string;
-  startedAt: string;
-  completedAt: string | null;
-  progress: number;
-  totalSteps: number;
-  completedSteps: number;
-  template: {
-    id: string;
-    title: string;
-  };
+  isFavorite: boolean;
+  steps: { id: string; title: string; description?: string }[];
 }
 
 interface Team {
   id: string;
   name: string;
-  description: string | null;
-  privacyLevel: string;
-  createdAt: string;
-  updatedAt: string;
   role: string;
-  userRole: string;
-  memberCount: number;
-  invitationCount: number;
-}
-
-interface TeamMember {
-  id: string;
-  userId: string;
-  teamId: string;
-  role: string;
-  joinedAt: string;
-  userName: string | null;
-  userEmail: string;
-}
-
-interface ApiTeamMember {
-  id: string;
-  userId: string;
-  teamId: string;
-  role: string;
-  joinedAt: string;
-  user?: {
-    name: string | null;
-    email: string;
-  };
 }
 
 export default function Dashboard() {
-  console.log("=== Dashboard component rendering (UPDATED) ===");
-  
   const { data: session, status } = useSession();
-  
-  const formatDate = (dateString: string) => {
-    if (!mounted) return "Loading...";
-    return new Date(dateString).toLocaleDateString();
-  };
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [activeChecklists, setActiveChecklists] = useState<ChecklistInstance[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [startingChecklist, setStartingChecklist] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-  const [showManagementModal, setShowManagementModal] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [showSharingModal, setShowSharingModal] = useState(false);
-  const [selectedTeamForTemplates, setSelectedTeamForTemplates] = useState<Team | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [favorites, setFavorites] = useState<Template[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [stats, setStats] = useState({
+    totalTemplates: 0,
+    completedChecklists: 0,
+    teamMembers: 0,
+    activeTeams: 0
+  });
 
   useEffect(() => {
     if (status === "loading") return;
@@ -102,392 +60,347 @@ export default function Dashboard() {
       return;
     }
 
-    loadTemplates();
-    loadActiveChecklists();
-    loadTeams();
+    loadDashboardData();
   }, [status, router]);
 
-  const loadTemplates = async () => {
+  const loadDashboardData = async () => {
     try {
-      setLoading(true);
-      const response = await fetch("/api/templates", {
-        credentials: "include",
-      });
+      setIsLoading(true);
       
-      if (!response.ok) {
-        throw new Error("Failed to load templates");
+      // Load templates
+      const templatesResponse = await fetch("/api/templates");
+      if (templatesResponse.ok) {
+        const templatesData = await templatesResponse.json();
+        setTemplates(templatesData);
+        setStats(prev => ({ ...prev, totalTemplates: templatesData.length }));
       }
 
-      const data = await response.json();
-      setTemplates(data);
+      // Load teams
+      const teamsResponse = await fetch("/api/teams");
+      if (teamsResponse.ok) {
+        const teamsData = await teamsResponse.json();
+        setTeams(teamsData);
+        setStats(prev => ({ ...prev, activeTeams: teamsData.length }));
+      }
+
+      // Load favorites
+      const favoritesResponse = await fetch("/api/templates/favorites");
+      if (favoritesResponse.ok) {
+        const favoritesData = await favoritesResponse.json();
+        setFavorites(favoritesData);
+      }
+
     } catch (error) {
-      setError("Failed to load templates");
-      console.error("Load templates error:", error);
+      console.error("Error loading dashboard data:", error);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadActiveChecklists = async () => {
-    try {
-      const response = await fetch("/api/checklists", {
-        credentials: "include",
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to load active checklists");
-      }
-
-      const data = await response.json();
-      setActiveChecklists(data);
-    } catch (error) {
-      console.error("Load active checklists error:", error);
-    }
-  };
-
-  const loadTeams = async () => {
-    try {
-      const response = await fetch("/api/teams", {
-        credentials: "include",
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to load teams");
-      }
-
-      const data = await response.json();
-      setTeams(data.teams || []);
-    } catch (error) {
-      console.error("Load teams error:", error);
-    }
-  };
-
-  const loadTeamDetails = async (teamId: string) => {
-    try {
-      const response = await fetch(`/api/teams/${teamId}`, {
-        credentials: "include",
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to load team details");
-      }
-
-      const data = await response.json();
-      
-      // Transform team data to match TeamManagementModal interface
-      const transformedTeam = {
-        ...data.team,
-        memberCount: data.members?.length || 0,
-        invitationCount: data.pendingInvitations || 0,
-      };
-      
-      // Transform members data to match TeamManagementModal interface
-      const transformedMembers = data.members?.map((member: ApiTeamMember) => ({
-        id: member.id,
-        userId: member.userId,
-        teamId: member.teamId,
-        role: member.role,
-        joinedAt: member.joinedAt,
-        userName: member.user?.name || null,
-        userEmail: member.user?.email || '',
-      })) || [];
-      
-      setSelectedTeam(transformedTeam);
-      setTeamMembers(transformedMembers);
-    } catch (error) {
-      console.error("Load team details error:", error);
-    }
-  };
-
-  const handleManageTeam = async (team: Team) => {
-    await loadTeamDetails(team.id);
-    setShowManagementModal(true);
-  };
-
-  const handleStartChecklist = async (templateId: string) => {
-    console.log("=== handleStartChecklist called ===");
-    console.log("Template ID:", templateId);
-    
-    try {
-      setStartingChecklist(templateId);
-      console.log("Making fetch request to /api/checklists...");
-      
-      const response = await fetch("/api/checklists", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ templateId }),
-      });
-
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.log("Error response:", errorText);
-        throw new Error("Failed to start checklist");
-      }
-
-      const newInstance = await response.json();
-      console.log("New instance created:", newInstance);
-      
-      // Reload active checklists
-      await loadActiveChecklists();
-      
-      // Navigate to the new checklist instance
-      router.push(`/checklists/${newInstance.id}`);
-    } catch (error) {
-      console.error("Start checklist error:", error);
-      setError("Failed to start checklist");
-    } finally {
-      console.log("Clearing starting checklist state");
-      setStartingChecklist(null);
-    }
-  };
-
-  const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm("Are you sure you want to delete this template?")) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/templates/${templateId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete template");
-      }
-
-      // Reload templates
-      loadTemplates();
-    } catch (error) {
-      setError("Failed to delete template");
-      console.error("Delete template error:", error);
+      setIsLoading(false);
     }
   };
 
   const handleToggleFavorite = async (templateId: string) => {
     try {
-      // Try to add to favorites first (POST)
-      let response = await fetch(`/api/templates/${templateId}/favorite`, {
-        method: "POST",
-        credentials: "include",
+      const isFavorited = favorites.some(fav => fav.id === templateId);
+      const method = isFavorited ? "DELETE" : "POST";
+      
+      const response = await fetch(`/api/templates/${templateId}/favorite`, {
+        method,
+        headers: { "Content-Type": "application/json" },
       });
 
-      // If POST fails with "already in favorites", try DELETE
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (errorData.error === "Template is already in your favorites") {
-          // Template is already favorited, so remove it
-          response = await fetch(`/api/templates/${templateId}/favorite`, {
-            method: "DELETE",
-            credentials: "include",
-          });
+      if (response.ok) {
+        if (isFavorited) {
+          setFavorites(favorites.filter(fav => fav.id !== templateId));
+        } else {
+          const template = templates.find(t => t.id === templateId);
+          if (template) {
+            setFavorites([...favorites, { ...template, isFavorite: true }]);
+          }
         }
       }
-
-      if (!response.ok) {
-        let errorMessage = "Failed to toggle favorite";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          // If we can't parse the error response, use the default message
-        }
-        throw new Error(errorMessage);
-      }
-
-      // Refresh templates to update favorite status
-      loadTemplates();
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      setError("Failed to toggle favorite");
     }
   };
 
-  if (status === "loading") {
+  const filteredTemplates = templates.filter(template =>
+    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    template.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (status === "loading" || isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (!session?.user) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Welcome to TaskFlow</h1>
-              <p className="text-gray-600 mt-2">Manage your checklist templates and track your progress</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-8">
+              <Link href="/" className="flex items-center">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  TaskFlow
+                </h1>
+              </Link>
+              <nav className="hidden md:flex space-x-6">
+                <Link href="/dashboard" className="text-blue-600 font-medium">Dashboard</Link>
+                <Link href="/templates/new" className="text-gray-600 hover:text-gray-900">Templates</Link>
+                <Link href="/teams/new" className="text-gray-600 hover:text-gray-900">Teams</Link>
+              </nav>
             </div>
-            <button
-              onClick={() => signOut()}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {session?.user?.name?.charAt(0) || "U"}
+                  </span>
+                </div>
+                <span className="hidden md:block text-sm font-medium text-gray-700">
+                  {session?.user?.name}
+                </span>
+              </div>
+              <button
+                onClick={() => router.push("/api/auth/signout")}
+                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-          
-          <div className="mt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">User Information</h2>
-            <p className="text-gray-600">Email: {session.user.email}</p>
-            {session.user.name && (
-              <p className="text-gray-600">Name: {session.user.name}</p>
-            )}
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Hero Welcome Section */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">
+                  Welcome back, {session?.user?.name?.split(" ")[0]}! 👋
+                </h1>
+                <p className="text-blue-100 text-lg">
+                  Ready to streamline your workflows today?
+                </p>
+              </div>
+              <div className="mt-6 md:mt-0">
+                <Link
+                  href="/templates/new"
+                  className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create Template
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Target className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Templates</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalTemplates}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Completed</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.completedChecklists}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Team Members</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.teamMembers}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Teams</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeTeams}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Link
+            href="/templates/new"
+            className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow group"
+          >
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                <Plus className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="font-semibold text-gray-900">Create Template</h3>
+                <p className="text-sm text-gray-600">Build a new checklist template</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href="/teams/new"
+            className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow group"
+          >
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                <Users className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="font-semibold text-gray-900">Join Team</h3>
+                <p className="text-sm text-gray-600">Collaborate with your team</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href="/dashboard"
+            className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow group"
+          >
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                <Zap className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="font-semibold text-gray-900">Quick Start</h3>
+                <p className="text-sm text-gray-600">Start a checklist instantly</p>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Templates Section */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Checklist Templates</h2>
-            <Link
-              href="/templates/new"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Create New Template
-            </Link>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Your Templates</h2>
+              <p className="text-gray-600">Manage and organize your checklist templates</p>
+            </div>
+            <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search templates..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded ${viewMode === "grid" ? "bg-white shadow-sm" : "text-gray-600"}`}
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 rounded ${viewMode === "list" ? "bg-white shadow-sm" : "text-gray-600"}`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          {error && (
-            <div className="text-red-600 text-sm mb-4">{error}</div>
-          )}
-
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="text-lg">Loading templates...</div>
-            </div>
-          ) : templates.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-gray-500 text-lg mb-4">No templates yet</div>
-              <p className="text-gray-400">Create your first checklist template to get started!</p>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {templates.map((template) => (
-                <div key={template.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{template.title}</h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    {template.stepCount} steps • Created {formatDate(template.createdAt)}
-                  </p>
-                  
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleStartChecklist(template.id)}
-                      disabled={startingChecklist === template.id}
-                      className={`px-3 py-1 text-white text-sm rounded focus:outline-none focus:ring-2 ${
-                        startingChecklist === template.id
-                          ? "bg-gray-400 cursor-not-allowed"
-                          : "bg-green-600 hover:bg-green-700 focus:ring-green-500"
-                      }`}
-                    >
-                      {startingChecklist === template.id ? "Starting..." : "Start Checklist"}
-                    </button>
-                    <button
-                      onClick={() => handleToggleFavorite(template.id)}
-                      className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                      title="Add to favorites"
-                    >
-                      ⭐
-                    </button>
-                    <Link
-                      href={`/templates/${template.id}/edit`}
-                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleDeleteTemplate(template.id)}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* My Teams Section */}
-        <div className="bg-white rounded-lg shadow-md p-6 mt-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">My Teams</h2>
-            <Link
-              href="/teams/new"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              Create New Team
-            </Link>
-          </div>
-          
-          {teams.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-gray-500 text-lg mb-4">No teams yet</div>
-              <p className="text-gray-400">Create your first team to start collaborating on checklists!</p>
+          {filteredTemplates.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Target className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No templates yet</h3>
+              <p className="text-gray-600 mb-6">Create your first template to get started</p>
+              <Link
+                href="/templates/new"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Template
+              </Link>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {teams.map((team) => (
-                <div key={team.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{team.name}</h3>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      team.role === "owner" 
-                        ? "bg-purple-100 text-purple-800" 
-                        : team.role === "admin"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}>
-                      {team.role === "owner" ? "Owner" : 
-                       team.role === "admin" ? "Admin" : 
-                       team.role === "member" ? "Member" : "Viewer"}
-                    </span>
-                  </div>
-                  
-                  {team.description && (
-                    <p className="text-sm text-gray-600 mb-3">{team.description}</p>
-                  )}
-                  
-                  <p className="text-sm text-gray-500 mb-4">
-                    {team.privacyLevel === "private" ? "Private" : "Public"} • Created {formatDate(team.createdAt)}
-                  </p>
-                  
-                  <div className="flex space-x-2">
-                    <Link
-                      href={`/teams/${team.id}`}
-                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      View Team
-                    </Link>
-                    <button
-                      onClick={() => {
-                        setSelectedTeamForTemplates(team);
-                        setShowSharingModal(true);
-                      }}
-                      className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      Share Template
-                    </button>
-                    {(team.role === "owner" || team.role === "admin") && (
+            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+              {filteredTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className={`bg-gray-50 rounded-xl p-6 hover:shadow-md transition-shadow ${
+                    viewMode === "list" ? "flex items-center justify-between" : ""
+                  }`}
+                >
+                  <div className={viewMode === "list" ? "flex-1" : ""}>
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="font-semibold text-gray-900 line-clamp-1">{template.name}</h3>
                       <button
-                        onClick={() => handleManageTeam(team)}
-                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onClick={() => handleToggleFavorite(template.id)}
+                        className={`p-1 rounded-full transition-colors ${
+                          favorites.some(fav => fav.id === template.id)
+                            ? "text-yellow-500 hover:text-yellow-600"
+                            : "text-gray-400 hover:text-yellow-500"
+                        }`}
                       >
-                        Manage
+                        <Star className={`w-4 h-4 ${favorites.some(fav => fav.id === template.id) ? "fill-current" : ""}`} />
                       </button>
-                    )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{template.description}</p>
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                      <span>{template.steps?.length || 0} steps</span>
+                      <span>{new Date(template.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Link
+                        href={`/templates/${template.id}/view`}
+                        className="flex-1 bg-blue-600 text-white text-center py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      >
+                        Start Checklist
+                      </Link>
+                      <Link
+                        href={`/templates/${template.id}/edit`}
+                        className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </Link>
+                      <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors">
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -495,116 +408,32 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Team Templates Section */}
+        {/* Recent Activity */}
         {teams.length > 0 && (
-          <div className="mt-8">
-            <TeamTemplatesSection
-              teamId={teams[0].id}
-              userRole={teams[0].role}
-              onRefresh={() => {
-                loadTeams();
-                loadTemplates();
-              }}
-            />
+          <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Teams</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {teams.map((team) => (
+                <Link
+                  key={team.id}
+                  href={`/teams/${team.id}`}
+                  className="bg-gray-50 rounded-xl p-4 hover:shadow-md transition-shadow group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {team.name}
+                      </h3>
+                      <p className="text-sm text-gray-600 capitalize">{team.role}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
-
-        {/* My Favorite Templates Section */}
-        <div className="mt-8">
-          <TemplateFavorites
-            onFavoriteRemoved={() => {
-              loadTemplates();
-            }}
-          />
-        </div>
-
-        {/* Active Checklists Section */}
-        <div className="bg-white rounded-lg shadow-md p-6 mt-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Active Checklists</h2>
-          
-          {activeChecklists.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-gray-500 text-lg mb-4">No active checklists</div>
-              <p className="text-gray-400">Start a checklist from one of your templates to see it here!</p>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {activeChecklists.map((checklist) => (
-                <div key={checklist.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{checklist.template.title}</h3>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      checklist.status === "completed" 
-                        ? "bg-green-100 text-green-800" 
-                        : checklist.status === "paused"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}>
-                      {checklist.status === "completed" ? "Completed" : 
-                       checklist.status === "paused" ? "Paused" : "In Progress"}
-                    </span>
-                  </div>
-                  
-                  <div className="mb-3">
-                    <div className="flex justify-between text-sm text-gray-600 mb-1">
-                      <span>Progress</span>
-                      <span>{checklist.completedSteps}/{checklist.totalSteps} ({checklist.progress}%)</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${checklist.progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-gray-500 mb-4">
-                    Started {formatDate(checklist.startedAt)}
-                  </p>
-                  
-                  <div className="flex space-x-2">
-                    <Link
-                      href={`/checklists/${checklist.id}`}
-                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      Continue
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
-
-      {/* Team Management Modal */}
-      {selectedTeam && (
-        <TeamManagementModal
-          team={selectedTeam}
-          members={teamMembers}
-          isOpen={showManagementModal}
-          onClose={() => setShowManagementModal(false)}
-          onRefresh={() => {
-            loadTeams();
-            if (selectedTeam) {
-              loadTeamDetails(selectedTeam.id);
-            }
-          }}
-        />
-      )}
-
-      {/* Template Sharing Modal */}
-      <TemplateSharingModal
-        isOpen={showSharingModal}
-        onClose={() => {
-          setShowSharingModal(false);
-          setSelectedTeamForTemplates(null);
-        }}
-        onSuccess={() => {
-          loadTeams();
-          loadTemplates();
-        }}
-      />
     </div>
   );
 } 
